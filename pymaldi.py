@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
    Copyright 2009 Antonio Pérez Jiménez
+                  David Prieto Carrellán
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -115,7 +116,7 @@ class Pymaldi():
         if self.__phase < 2:
             return 1
 
-        return self.__send_command(0x01, '', '\x01\x00\x00\x21')
+        return self.__process_command(0x01, '', '\x01\x00\x00\x21')
 
 
     def GetConfig (self, param):
@@ -143,7 +144,7 @@ class Pymaldi():
             return 255
 
         data = chr(numout) + chr(time)
-        return self.__send_command(0x30, data, '\x30\x00\x00\x23')
+        return self.__process_command(0x30, data, '\x30\x00\x00\x23')
 
 
     def ActivateRelay (self, numrelay, time):
@@ -156,7 +157,7 @@ class Pymaldi():
             return 255
 
         data = chr(numrelay) + chr(time)
-        return self.__send_command(0x40, data, '\x40\x00\x00\x24')
+        return self.__process_command(0x40, data, '\x40\x00\x00\x24')
 
 
     def WriteDisplay (self, text):
@@ -164,7 +165,7 @@ class Pymaldi():
             return self.__phase
 
         data = '%-40s' % text[0:40]
-        return self.__send_command(0x11, data, '\x11\x00\x00\x22')
+        return self.__process_command(0x11, data, '\x11\x00\x00\x22')
 
 
     def WriteDisplay2 (self, text, light, beep):
@@ -175,14 +176,14 @@ class Pymaldi():
             return 255
 
         data = chr(light) + chr(beep) + '%-40s' % text[0:40]
-        return self.__send_command(0x14, data, '\x14\x00\x00\x25')
+        return self.__process_command(0x14, data, '\x14\x00\x00\x25')
 
 
     def ClearDisplay (self):
         if self.__phase < 3:
             return self.__phase
 
-        return self.__send_command(0x10, '', '\x10\x00\x00\x21')
+        return self.__process_command(0x10, '', '\x10\x00\x00\x21')
 
 
 
@@ -243,22 +244,17 @@ class Pymaldi():
 
     def __is_event (self, ans):
         opc = ord(ans[0])
+        anl = ord(ans[2])
         if not opc in EVENTS_OP:
             return False
         else:
-            if (opc == 0x30 or opc == 0x40) and ord(ans[2]) == 0x00:
+            if (opc == 0x30 or opc == 0x40) and anl == 0x00:
                 return False
 
         return True
 
-    def __send_command (self, opc, data, exptd_ans):
-        self.__send_frame(self.__create_frame(opc, data))
-        try:
-            ans = self.__qComAns.get(True, 5)
-        except Queue.Empty:
-            print "No answer received from terminal"
-            return 255
-
+    def __process_command (self, opc, data, exptd_ans):
+        ans = __send_command (opc, data)
         if ans != exptd_ans:
             print "Unexpected answer:",
             for i in ans:
@@ -267,17 +263,22 @@ class Pymaldi():
         return 0
 
     def __command_and_answer (self, opc, data):
+        ans = __send_command (opc, data)
+
+        if (not ans) or (ord(ans[0]) != opc):
+            return (255, '')
+
+        return (0, ans)
+
+    def __send_command (self, opc, data):
         self.__send_frame(self.__create_frame(opc, data))
         try:
             ans = self.__qComAns.get(True, 5)
         except Queue.Empty:
             print "No answer received from terminal"
-            return 255
+            ans = None
 
-        if ans[0] != '\x0A':
-            return (255, '')
-
-        return (0, ans)
+        return ans
 
     def __send_tcp_frame (self, frame):
         self.socket.send(frame)
