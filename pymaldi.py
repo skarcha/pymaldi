@@ -19,6 +19,7 @@ import socket
 import threading
 import Queue
 
+PYMALDI_VERSION = 0.2
 STX = '\002'
 ETX = '\003'
 BUFLEN = 2048
@@ -27,9 +28,9 @@ EVENTS_OP = (0x09, 0x30, 0x40, 0x60, 0x80, 0x81, 0x82, 0x83, 0x4B)
 class Pymaldi():
 
     def __init__ (self):
-        self.__phase      = 1
-        self.__qComAns    = Queue.Queue()
-        self.__qEvents    = Queue.Queue()
+        self.__phase   = 1
+        self.__qComAns = Queue.Queue()
+        self.__qEvents = Queue.Queue()
 
     def onReadCard(self, card_id):
         pass
@@ -254,17 +255,15 @@ class Pymaldi():
         return True
 
     def __process_command (self, opc, data, exptd_ans):
-        ans = __send_command (opc, data)
+        ans = self.__send_command (opc, data)
         if ans != exptd_ans:
             print "Unexpected answer:",
-            for i in ans:
-                print hex(ord(i)),
+            self.__show_buffer(ans)
             return 255
         return 0
 
     def __command_and_answer (self, opc, data):
-        ans = __send_command (opc, data)
-
+        ans = self.__send_command (opc, data)
         if (not ans) or (ord(ans[0]) != opc):
             return (255, '')
 
@@ -337,6 +336,7 @@ class Pymaldi():
         return bytes
 
     def __show_buffer(self, buf):
-        for i in buf:
-            print hex(ord(i)),
-        print
+        if buf:
+            for i in buf:
+                print hex(ord(i)),
+            print
