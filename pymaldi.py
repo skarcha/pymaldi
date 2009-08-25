@@ -44,6 +44,9 @@ class Pymaldi():
     def onTempBeeper(self, beeper, time):
         pass
 
+    def onDigitalInput(self, status):
+        pass
+
     def onDefault(self, data):
         pass
 
@@ -117,7 +120,7 @@ class Pymaldi():
         if self.__phase < 2:
             return 1
 
-        return self.__process_command(0x01, '', '\x01\x00\x00\x21')
+        return self.__process_command(0x01, '')
 
 
     def GetConfig (self, param):
@@ -145,7 +148,7 @@ class Pymaldi():
             return 255
 
         data = chr(numout) + chr(time)
-        return self.__process_command(0x30, data, '\x30\x00\x00\x23')
+        return self.__process_command(0x30, data)
 
 
     def ActivateRelay (self, numrelay, time):
@@ -158,7 +161,7 @@ class Pymaldi():
             return 255
 
         data = chr(numrelay) + chr(time)
-        return self.__process_command(0x40, data, '\x40\x00\x00\x24')
+        return self.__process_command(0x40, data)
 
 
     def WriteDisplay (self, text):
@@ -166,7 +169,7 @@ class Pymaldi():
             return self.__phase
 
         data = '%-40s' % text[0:40]
-        return self.__process_command(0x11, data, '\x11\x00\x00\x22')
+        return self.__process_command(0x11, data)
 
 
     def WriteDisplay2 (self, text, light, beep):
@@ -177,15 +180,25 @@ class Pymaldi():
             return 255
 
         data = chr(light) + chr(beep) + '%-40s' % text[0:40]
-        return self.__process_command(0x14, data, '\x14\x00\x00\x25')
+        return self.__process_command(0x14, data)
 
 
     def ClearDisplay (self):
         if self.__phase < 3:
             return self.__phase
 
-        return self.__process_command(0x10, '', '\x10\x00\x00\x21')
+        return self.__process_command(0x10, '')
 
+
+    def DigitalInputStatus (self):
+        if self.__phase < 3:
+            return self.__phase
+
+        re, ans = self.__command_and_answer(0x60, '')
+        if re:
+            return re, ans
+        else:
+            return 0, ord(ans[3])
 
 
     # Private methods.
@@ -238,6 +251,10 @@ class Pymaldi():
                         elif etype == 0x03:
                             self.onTempBeeper('internal', time)
 
+            elif opc == 0x60: # OnDigitalInput
+                if na != 0x00 and callable(self.OnDigitalInput):
+                    self.onDigitalInput(ord(ans_event[3:3+na]))
+
             else: # Other events
                 if callable(self.onDefault):
                     self.onDefault(ans_event[:-1])
@@ -254,17 +271,15 @@ class Pymaldi():
 
         return True
 
-    def __process_command (self, opc, data, exptd_ans):
+    def __process_command (self, opc, data):
         ans = self.__send_command (opc, data)
-        if ans != exptd_ans:
-            print "Unexpected answer:",
-            self.__show_buffer(ans)
+        if not ans:
             return 255
         return 0
 
     def __command_and_answer (self, opc, data):
         ans = self.__send_command (opc, data)
-        if (not ans) or (ord(ans[0]) != opc):
+        if not ans:
             return (255, '')
 
         return (0, ans)
@@ -273,11 +288,31 @@ class Pymaldi():
         self.__send_frame(self.__create_frame(opc, data))
         try:
             ans = self.__qComAns.get(True, 5)
+            if not self.__validate_data (opc, ans):
+                self.__show_buffer(ans)
+                ans = None
         except Queue.Empty:
             print "No answer received from terminal"
             ans = None
 
         return ans
+
+    def __validate_data (self, opc, data_answer):
+        opc_answer = ord(data_answer[0])
+        len_answer = (ord(data_answer[1]) << 8) + ord(data_answer[2])
+        crc_answer = ord(data_answer[-1])
+
+        if opc != opc_answer:
+            print "Operation code error"
+            return False
+
+        crc = self.__get_crc(self.__get_data_crc(opc_answer, data_answer[3:3+len_answer]))
+
+        if crc_answer != crc:
+            print "CRC error!: %0.2X" % crc
+            return False
+
+        return True
 
     def __send_tcp_frame (self, frame):
         self.socket.send(frame)
@@ -301,7 +336,7 @@ class Pymaldi():
         data_crc = self.__get_data_crc(operation, data)
         crc =  self.__get_crc(data_crc)
 
-        return STX + data_crc +"%0.2X" % crc + ETX
+        return STX + data_crc + "%0.2X" % crc + ETX
 
     def __create_udp_frame(self, operation, data):
         leng = len(data)
