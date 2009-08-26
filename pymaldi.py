@@ -151,6 +151,22 @@ class Pymaldi():
         return self.__process_command(0x30, data)
 
 
+    def SwitchDigitalOutput (self, numout, value):
+        if self.__phase < 3:
+            return self.__phase
+
+        if numout < 0 or numout > 3:
+            return 255
+
+        if value:
+            switch = 1
+        else:
+            switch = 0
+
+        data = chr(numout) + chr(switch)
+        return self.__process_command(0x31, data)
+
+
     def ActivateRelay (self, numrelay, time):
         if self.__phase < 3:
             return self.__phase
@@ -162,6 +178,22 @@ class Pymaldi():
 
         data = chr(numrelay) + chr(time)
         return self.__process_command(0x40, data)
+
+
+    def SwitchRelay (self, numrelay, value):
+        if self.__phase < 3:
+            return self.__phase
+
+        if numrelay < 0 or numrelay > 3:
+            return 255
+
+        if value:
+            switch = 1
+        else:
+            switch = 0
+
+        data = chr(numrelay) + chr(switch)
+        return self.__process_command(0x41, data)
 
 
     def WriteDisplay (self, text):
@@ -252,7 +284,7 @@ class Pymaldi():
                             self.onTempBeeper('internal', time)
 
             elif opc == 0x60: # OnDigitalInput
-                if na != 0x00 and callable(self.OnDigitalInput):
+                if na != 0x00 and callable(self.onDigitalInput):
                     self.onDigitalInput(ord(ans_event[3:3+na]))
 
             else: # Other events
