@@ -31,6 +31,7 @@ class Pymaldi():
         self.__phase   = 1
         self.__qComAns = Queue.Queue()
         self.__qEvents = Queue.Queue()
+        self.__qwCommandAns = Queue.Queue()
 
     def onReadCard(self, card_id):
         pass
@@ -294,12 +295,15 @@ class Pymaldi():
 
     def __is_event (self, ans):
         opc = ord(ans[0])
-        anl = ord(ans[2])
         if not opc in EVENTS_OP:
             return False
         else:
-            if (opc == 0x30 or opc == 0x40) and anl == 0x00:
-                return False
+            try:
+                wopc = self.__qwCommandAns.get(False)
+                if wopc == opc:
+                    return False
+            except Queue.Empty:
+                pass
 
         return True
 
@@ -317,6 +321,8 @@ class Pymaldi():
         return (0, ans)
 
     def __send_command (self, opc, data):
+        if opc in EVENTS_OP:
+            self.__qwCommandAns.put(opc)
         self.__send_frame(self.__create_frame(opc, data))
         try:
             ans = self.__qComAns.get(True, 5)
