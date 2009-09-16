@@ -18,6 +18,8 @@
 import socket
 import threading
 import Queue
+import logging
+
 
 PYMALDI_VERSION = 0.2
 STX = '\002'
@@ -25,13 +27,25 @@ ETX = '\003'
 BUFLEN = 2048
 EVENTS_OP = (0x09, 0x30, 0x40, 0x60, 0x80, 0x81, 0x82, 0x83, 0x4B)
 
+
+class NullHandler(logging.Handler):
+    def emit(self, record):
+        pass
+
+
 class Pymaldi():
 
-    def __init__ (self):
+    def __init__ (self, logger_name=None):
         self.__phase   = 1
         self.__qComAns = Queue.Queue()
         self.__qEvents = Queue.Queue()
         self.__qwCommandAns = Queue.Queue()
+        if logger_name:
+            logger_name += '.pymaldi'
+        else:
+            logger_name = 'pymaldi'
+        self.__logger = logging.getLogger(logger_name)
+        self.__logger.addHandler(NullHandler())
 
     def onReadCard(self, card_id):
         pass
@@ -66,7 +80,7 @@ class Pymaldi():
             return 1
 
         if not rAddress:
-            print "Remote address is needed"
+            self.__logger.critical("Remote address is needed")
             return 3
 
         self.remoteAddress = rAddress
@@ -75,7 +89,7 @@ class Pymaldi():
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.socket.bind(('', localPort))
         except:
-            print "Error opening UDP port: %s:%s" % (rAddress, localPort)
+            self.__logger.critical("Error opening UDP port: %s:%s" % (rAddress, localPort))
             return 4
 
         self.__create_frame = self.__create_udp_frame
@@ -91,7 +105,7 @@ class Pymaldi():
             return 1
 
         if not rAddress:
-            print "Remote address is needed"
+            self.__logger.critical("Remote address is needed")
             return 3
 
         self.remoteAddress = rAddress
@@ -99,7 +113,7 @@ class Pymaldi():
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.connect((rAddress, remotePort))
         except:
-            print "Error connecting to: %s:%s" % (rAddress, remotePort)
+            self.__logger.critical("Error connecting to: %s:%s" % (rAddress, remotePort))
             return 4
 
         self.__create_frame = self.__create_tcp_frame
@@ -330,7 +344,7 @@ class Pymaldi():
                 self.__show_buffer(ans)
                 ans = None
         except Queue.Empty:
-            print "No answer received from terminal"
+            self.__logger.debug("No answer received from terminal")
             ans = None
 
         return ans
@@ -341,13 +355,13 @@ class Pymaldi():
         crc_answer = ord(data_answer[-1])
 
         if opc != opc_answer:
-            print "Operation code error"
+            self.__logger.error("Operation code error")
             return False
 
         crc = self.__get_crc(self.__get_data_crc(opc_answer, data_answer[3:3+len_answer]))
 
         if crc_answer != crc:
-            print "CRC error!: %0.2X" % crc
+            self.__logger.error("CRC error!: %0.2X" % crc)
             return False
 
         return True
@@ -410,6 +424,7 @@ class Pymaldi():
 
     def __show_buffer(self, buf):
         if buf:
+            msg = ''
             for i in buf:
-                print hex(ord(i)),
-            print
+                msg += hex(ord(i))
+            self.__logger.critical(msg)
