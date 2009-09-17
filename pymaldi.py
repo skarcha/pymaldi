@@ -152,6 +152,26 @@ class Pymaldi():
                 return 0, ord(ans[4])
 
 
+    def SetConfig (self, param, value):
+        if self.__phase < 3:
+            return self.__phase
+
+        re, ans = self.__command_and_answer(0x0B, chr(param) + chr(value))
+        if re:
+            return re
+        else:
+            if (ans[2] != '\x01') or (ans[3] != chr(param)):
+                return 255
+            return 0
+
+
+    def ApplyConfig (self):
+        if self.__phase < 3:
+            return 1
+
+        return self.__process_command(0x09, '')
+
+
     def ActivateDigitalOutput (self, numout, time):
         if self.__phase < 3:
             return self.__phase
