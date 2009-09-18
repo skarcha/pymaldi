@@ -47,6 +47,9 @@ class Pymaldi():
         self.__logger = logging.getLogger(logger_name)
         self.__logger.addHandler(NullHandler())
 
+    def onReset(self, data):
+        pass
+
     def onReadCard(self, card_id):
         pass
 
@@ -291,7 +294,14 @@ class Pymaldi():
             opc = ord(ans_event[0])
             na  = (ord(ans_event[1]) << 8) + ord(ans_event[2])
 
-            if opc == 0x81: # Card read
+            if opc == 0x09: # onReset
+                if callable(self.onReset):
+                    if na == 0x00:
+                        self.onReset('')
+                    else:
+                        self.onReset(self.__byte_to_hex(ans_event[3:3+na]))
+
+            elif opc == 0x81: # Card read
                 if callable(self.onReadCard):
                     if na != 0x00:
                         card_id = ans_event[3:3+na]
@@ -421,9 +431,7 @@ class Pymaldi():
         str_operation = "%0.2X" % operation
         length_hex = "%0.4X" % len(data)
 
-        data_hex = ''
-        for i in data:
-            data_hex += "%0.2X" % ord(i)
+        data_hex = self.__byte_to_hex (data)
 
         return str_operation + length_hex + data_hex
 
@@ -441,6 +449,13 @@ class Pymaldi():
             bytes += chr(int(hex_str[i:i+2], 16))
 
         return bytes
+
+    def __byte_to_hex (self, bytes):
+        data_hex = ''
+        for i in bytes:
+            data_hex += "%0.2X" % ord(i)
+
+        return data_hex
 
     def __show_buffer(self, buf):
         if buf:
