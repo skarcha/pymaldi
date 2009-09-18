@@ -70,8 +70,10 @@ class Pymaldi():
 
     def __create_threads(self):
         self.thd_reader = threading.Thread(None, self.__read_from_terminal)
+        self.thd_reader.setDaemon(True)
         self.thd_reader.start()
         self.thd_events = threading.Thread(None, self.__process_events)
+        self.thd_events.setDaemon(True)
         self.thd_events.start()
 
     def wait_events(self):
