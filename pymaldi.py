@@ -129,6 +129,15 @@ class Pymaldi():
         return 0
 
 
+    def ClosePort (self):
+        if self.__phase < 3:
+            self.socket.close()
+            self.__phase = 1
+            self.__clear_queue(self.__qComAns)
+            self.__clear_queue(self.__qEvents)
+            self.__clear_queue(self.__qwCommandAns)
+
+
     def SetUpBIOMAX2 (self, model=0):
         re = self.HotReset()
         if not re:
@@ -465,3 +474,7 @@ class Pymaldi():
             for i in buf:
                 msg += hex(ord(i))
             self.__logger.critical(msg)
+
+    def __clear_queue (queue):
+        while not queue.empty():
+            _ = queue.get(False)
