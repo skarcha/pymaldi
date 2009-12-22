@@ -21,7 +21,7 @@ import Queue
 import logging
 
 
-PYMALDI_VERSION = 0.3
+PYMALDI_VERSION = 0.4
 STX = '\002'
 ETX = '\003'
 BUFLEN = 2048
@@ -40,6 +40,7 @@ class Pymaldi():
         self.__qComAns = Queue.Queue()
         self.__qEvents = Queue.Queue()
         self.__qwCommandAns = Queue.Queue()
+        self.__commandsLock = threading.Lock()
         if logger_name:
             logger_name += '.pymaldi'
         else:
@@ -296,7 +297,7 @@ class Pymaldi():
             else:
                 self.__qComAns.put(ans)
 
-            # self.__show_buffer(ans)
+            # print self.__dump_buffer(ans)
 
 
     def __process_events (self):
@@ -376,18 +377,22 @@ class Pymaldi():
         return (0, ans)
 
     def __send_command (self, opc, data):
+        # One command at a time
+        self.__commandsLock.acquire()
+
         if opc in EVENTS_OP:
             self.__qwCommandAns.put(opc)
         self.__send_frame(self.__create_frame(opc, data))
         try:
             ans = self.__qComAns.get(True, 5)
             if not self.__validate_data (opc, ans):
-                self.__show_buffer(ans)
+                self.__logger.critical(self.__dump_buffer(ans))
                 ans = None
         except Queue.Empty:
             self.__logger.debug("No answer received from terminal")
             ans = None
 
+        self.__commandsLock.release()
         return ans
 
     def __validate_data (self, opc, data_answer):
@@ -396,7 +401,7 @@ class Pymaldi():
         crc_answer = ord(data_answer[-1])
 
         if opc != opc_answer:
-            self.__logger.error("Operation code error")
+            self.__logger.error("Operation code error: %0.2X != %0.2X" % (opc, opc_answer))
             return False
 
         crc = self.__get_crc(self.__get_data_crc(opc_answer, data_answer[3:3+len_answer]))
@@ -468,12 +473,12 @@ class Pymaldi():
 
         return data_hex
 
-    def __show_buffer(self, buf):
+    def __dump_buffer(self, buf):
+        msg = []
         if buf:
-            msg = ''
             for i in buf:
-                msg += hex(ord(i))
-            self.__logger.critical(msg)
+                msg += ["%0.2X" % ord(i)]
+        return ' '.join(msg)
 
     def __clear_queue (queue):
         while not queue.empty():
