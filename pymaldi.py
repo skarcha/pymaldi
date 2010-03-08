@@ -486,6 +486,6 @@ class Pymaldi():
                 msg += ["%0.2X" % ord(i)]
         return ' '.join(msg)
 
-    def __clear_queue (queue):
+    def __clear_queue (self, queue):
         while not queue.empty():
             _ = queue.get(False)
