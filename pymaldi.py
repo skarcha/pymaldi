@@ -383,14 +383,20 @@ class Pymaldi():
         if opc in EVENTS_OP:
             self.__qwCommandAns.put(opc)
         self.__send_frame(self.__create_frame(opc, data))
-        try:
-            ans = self.__qComAns.get(True, 5)
-            if not self.__validate_data (opc, ans):
-                self.__logger.critical(self.__dump_buffer(ans))
+
+        waitingAnswer = True
+        while waitingAnswer:
+            try:
+                ans = self.__qComAns.get(True, 5)
+                if not self.__validate_data (opc, ans):
+                    self.__logger.critical(self.__dump_buffer(ans))
+                    ans = None
+                else:
+                    waitingAnswer = False
+            except Queue.Empty:
+                self.__logger.debug("No answer received from terminal")
                 ans = None
-        except Queue.Empty:
-            self.__logger.debug("No answer received from terminal")
-            ans = None
+                waitingAnswer = False
 
         self.__commandsLock.release()
         return ans
