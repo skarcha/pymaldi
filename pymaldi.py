@@ -21,7 +21,7 @@ import Queue
 import logging
 
 
-PYMALDI_VERSION = 0.4
+PYMALDI_VERSION = 0.5
 STX = '\002'
 ETX = '\003'
 BUFLEN = 2048
