@@ -394,7 +394,7 @@ class Pymaldi():
                 else:
                     waitingAnswer = False
             except Queue.Empty:
-                self.__logger.debug("No answer received from terminal")
+                self.__logger.error("No answer received from terminal")
                 ans = None
                 waitingAnswer = False
 
